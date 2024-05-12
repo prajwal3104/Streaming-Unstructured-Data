@@ -68,19 +68,41 @@ if __name__ == "__main__":
 udfs = define_udfs()
 
 job_bulletins_df = (spark.readStream
-                    .format('text')
-                    .option('wholetext', 'true')
-                    .load(text_input_dir)
-                )
+                        .format('text')
+                        .option('wholetext', 'true')
+                        .load(text_input_dir)
+                        )
 
-job_bulletins_df = job_bulletins_df.withColumn('file_name',
-                                               regexp_replace(udfs['extract_file_name_udf']('value'), '\r', ' '))
-job_bulletins_df = job_bulletins_df.withColumn('value', regexp_replace('value', 'r\n', ' '))
-job_bulletins_df = job_bulletins_df.withColumn('position', udfs['extract_position_udf']('value'))
-job_bulletins_df = job_bulletins_df.withColumn('start_date', udfs['extract_start_date_udf']('value'))
-job_bulletins_df = job_bulletins_df.withColumn('end_date', udfs['extract_end_date_udf']('value'))
+json_text_df = (spark.readStream
+                     .format('text')
+                     .load(json_input_dir))
 
-j_df = job_bulletins_df.select('file_name', 'position', 'start_date', 'end_date')
+json_df = spark.read.json(json_text_df.selectExpr("CAST(value AS STRING)").rdd.map(lambda row: row.value), schema=data_schema)
+
+
+# job_bulletins_df = job_bulletins_df.withColumn('file_name',
+#                                                regexp_replace(udfs['extract_file_name_udf']('value'), '\r', ' '))
+# job_bulletins_df = job_bulletins_df.withColumn('value', regexp_replace(regexp_replace('value', 'r\n', ' '), r'\r', ' '))
+# job_bulletins_df = job_bulletins_df.withColumn('position', 
+#                                                regexp_replace(udfs['extract_position_udf']('value'), r'\r', ' '))
+# job_bulletins_df = job_bulletins_df.withColumn('start_date', udfs['extract_start_date_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('salary_start', job_bulletins_df['salary'].getField('salary_start'))
+# job_bulletins_df = job_bulletins_df.withColumn('salary_end', job_bulletins_df['salary'].getField('salary_end'))
+# job_bulletins_df = job_bulletins_df.withColumn('class_code', udfs['extract_class_code_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('end_date', udfs['extract_end_date_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('req', udfs['extract_requirements_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('notes', udfs['extract_notes_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('duties', udfs['extract_duties_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('selection', udfs['extract_selection_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('experience_length', udfs['extract_experience_length_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('job_type', udfs['extract_job_type_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('education_length', udfs['extract_education_length_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('school_type', udfs['extract_school_type_udf']('value'))
+# job_bulletins_df = job_bulletins_df.withColumn('application_location', udfs['extract_application_location_udf']('value'))
+
+json_df = json_df.select('file_name', 'position', 'start_date', 'end_date', 'salary_start', 'salary_end', 'class_code', 'req', 'notes', 'duties', 'selection', 'experience_length', 'job_type', 'education_length', 'school_type', 'application_location')
+
+j_df = job_bulletins_df.select('file_name', 'position', 'start_date', 'end_date', 'salary_start', 'salary_end', 'class_code', 'req', 'notes', 'duties', 'selection', 'experience_length', 'job_type', 'education_length', 'school_type', 'application_location')
 query = (job_bulletins_df
         .writeStream
         .outputMode('append')
